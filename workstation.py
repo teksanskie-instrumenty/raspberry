@@ -6,7 +6,7 @@ import neopixel
 import board
 import paho.mqtt.client as mqtt
 import sender
-import receiver
+import raspberry.receiver as receiver
 import json
 import busio
 import adafruit_bme280.advanced as adafruit_bme280
@@ -31,6 +31,8 @@ confirmed = False
 confirmedAt = 0
 pace = 0.5
 reps = 0
+reseted_after_finish = False
+success_reseted = False
 
 BUZZER_PIN = buzzerPin
 
@@ -45,24 +47,30 @@ def initDisplay(display):
     display.clear()
     global image1, draw, fontSmall
     draw.text((30, 10), "Put card to a reader", font=fontSmall, fill="WHITE")
+    display.ShowImage(image1, 0, 0)
 
 
 def resetDisplay():
     global image1, draw, fontSmall, display
     display.clear()
     draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
-    draw.text((30, 10), "Put card to a reader", font=fontSmall, fill="WHITE")
-
+    draw.text((0, 10), "Put card to a reader", font=fontSmall, fill="WHITE")
+    display.ShowImage(image1, 0, 0)
 
 def showSuccess():
-    global image1, draw, fontSmall, display
-    display.clear()
-    draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
-    draw.text((30, 10), "Good job!", font=fontSmall, fill="WHITE")
+    global image1, draw, fontSmall, display, success_reseted
+    if not success_reseted:
+        display.clear()
+        draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
+        draw.text((30, 10), "Good job!", font=fontSmall, fill="WHITE")
+        display.ShowImage(image1, 0, 0)
+        success_reseted = True
 
 
 def start_task():
-    global image1, draw, fontSmall, display, task_start, task_start_time, cur_exercise, reps, task_finished
+    global image1, draw, fontSmall, display, task_start, task_start_time, cur_exercise, reps, task_finished, reseted_after_finish, success_reseted
+    success_reseted = True
+    reseted_after_finish = False
     task_start = True
     task_finished = False
     reps = 0
@@ -70,16 +78,23 @@ def start_task():
     draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
     draw.text(
         (10, 10),
-        f"Current exercise: {cur_exercise['exercise']['name']}",
+        f"Current exercise:",
+        font=fontSmall,
+        fill="WHITE",
+    )
+    draw.text(
+        (10, 20),
+        f"{cur_exercise['exercise']['name']}",
         font=fontSmall,
         fill="WHITE",
     )
     draw.text(
         (10, 30),
-        f"Repetitions: {cur_exercise['exercise']['repetitions']}",
+        f"Repetitions: {cur_exercise['repetitions']}",
         font=fontSmall,
         fill="WHITE",
     )
+    display.ShowImage(image1, 0, 0)
     task_start_time = time.time()
 
 
@@ -113,77 +128,79 @@ def get_task_info():
     global task_start
 
     # subscribe to get/task/response
-    receiver.connect_to_broker("get/task/resp", process_message=act_on_task_info)
     # send get/task request
+    print('getting task')
     send_get_task_request()
+    print('request sent')
 
 
-def act_on_task_info(client, userdata, message) -> dict:
-    """
-    {
-        "dailyPlan": {
-            "id": 2,
-            "name": "Zdrowe plecy",
-            "description": "Ulecz ból pleców",
-            "image": "./plecy.png",
-        },
-        "dailyPlanExercises": [
-            {
-                "id": 3,
-                "order": 1,
-                "sets": 3,
-                "repetitions": 10,
-                "interval": 60,
-                "exercise": {
-                    "id": 1,
-                    "station_id": 1,
-                    "name": "plecy 1",
-                    "pace": "3040",
-                },
-                "when_finished": "2022-03-01T11:00:00.000Z",
-                "is_finished": true,
-            },
-            {
-                "id": 2,
-                "order": 1,
-                "sets": 3,
-                "repetitions": 10,
-                "interval": 60,
-                "exercise": {
-                    "id": 1,
-                    "station_id": 1,
-                    "name": "plecy 1",
-                    "pace": "3040",
-                },
-                "when_finished": "2022-03-01T11:00:00.000Z",
-                "is_finished": true,
-            },
-            {
-                "id": 1,
-                "order": 1,
-                "sets": 20,
-                "repetitions": 10,
-                "interval": 5,
-                "exercise": {
-                    "id": 1,
-                    "station_id": 1,
-                    "name": "plecy 1",
-                    "pace": "3040",
-                },
-                "when_finished": "2022-03-01T11:00:00.000Z",
-                "is_finished": true,
-            },
-        ],
-    }
-    """
+def act_on_task_info(client, userdata, message):
+    # """
+    # {
+    #     "dailyPlan": {
+    #         "id": 2,
+    #         "name": "Zdrowe plecy",
+    #         "description": "Ulecz ból pleców",
+    #         "image": "./plecy.png",
+    #     },
+    #     "dailyPlanExercises": [
+    #         {
+    #             "id": 3,
+    #             "order": 1,
+    #             "sets": 3,
+    #             "repetitions": 10,
+    #             "interval": 60,
+    #             "exercise": {
+    #                 "id": 1,
+    #                 "station_id": 1,
+    #                 "name": "plecy 1",
+    #                 "pace": "3040",
+    #             },
+    #             "when_finished": "2022-03-01T11:00:00.000Z",
+    #             "is_finished": true,
+    #         },
+    #         {
+    #             "id": 2,
+    #             "order": 1,
+    #             "sets": 3,
+    #             "repetitions": 10,
+    #             "interval": 60,
+    #             "exercise": {
+    #                 "id": 1,
+    #                 "station_id": 1,
+    #                 "name": "plecy 1",
+    #                 "pace": "3040",
+    #             },
+    #             "when_finished": "2022-03-01T11:00:00.000Z",
+    #             "is_finished": true,
+    #         },
+    #         {
+    #             "id": 1,
+    #             "order": 1,
+    #             "sets": 20,
+    #             "repetitions": 10,
+    #             "interval": 5,
+    #             "exercise": {
+    #                 "id": 1,
+    #                 "station_id": 1,
+    #                 "name": "plecy 1",
+    #                 "pace": "3040",
+    #             },
+    #             "when_finished": "2022-03-01T11:00:00.000Z",
+    #             "is_finished": true,
+    #         },
+    #     ],
+    # }
+    # """
     global current_task_id, cur_exercise
-
-    sender.disconnect_from_broker()
+    
+    
+    # sender.disconnect_from_broker()
     message_decoded = str(message.payload.decode("utf-8"))
     print(message_decoded)
     parsed = json.loads(message_decoded)
     exercises = parsed["dailyPlanExercises"]
-    exercises.sort(key=lambda x: x["order"], ascending=True)
+    exercises.sort(key=lambda x: x["order"])
     current_exercise = exercises[0]
     for exercise in exercises:
         if not exercise["is_finished"]:
@@ -197,18 +214,24 @@ def act_on_task_info(client, userdata, message) -> dict:
 
 
 def finish_task():
-    resetDisplay()
-    global image1, draw, fontSmall, display, task_start, task_start_time, cur_exercise, reps, task_finished, confirmed
-    task_finished = True
-    draw.text((30, 10), "Confirm finishing exercise", font=fontSmall, fill="WHITE")
-    confirmed = False
-    confirmedAt = time.time()
+    global reseted_after_finish
+    if not reseted_after_finish:
+        global image1, draw, fontSmall, display, task_start, task_start_time, cur_exercise, reps, task_finished, confirmed, display, confirmedAt
+        display.clear()
+        task_finished = True
+        draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
+        draw.text((30, 10), "Confirm finishing exercise", font=fontSmall, fill="WHITE")
+        display.ShowImage(image1, 0, 0)
+        confirmed = False
+        confirmedAt = time.time()
+        reseted_after_finish = True
 
 
 def send_get_task_request():
     # send get/task request
     global current_card_id
-    sender.call_worker("get/task", current_card_id)
+    sender.connect_to_broker("get/task", current_card_id)
+    sender.disconnect_from_broker()
 
 
 def send_confirm_task_request():
@@ -216,7 +239,7 @@ def send_confirm_task_request():
     global current_card_id
     global current_task_id
     # current timestamp in format 2022-03-01T10:00:00Z
-    sender.call_worker(
+    sender.connect_to_broker(
         "confirm/task",
         current_card_id
         + " "
@@ -228,26 +251,34 @@ def send_confirm_task_request():
 
 def update_exercise():
     print("updating exercise")
-    global cur_exercise, reps, task_finished, task_start_time, confirmed
+    global cur_exercise, reps, task_finished, task_start_time, confirmed, confirmedAt
 
     phases = (int(phase) for phase in cur_exercise["exercise"]["pace"])
     cycle = sum(phases)
     reps = int((time.time() - task_start_time) / cycle)
 
-    if reps >= cur_exercise["exercise"]["repetitions"]:
+    if reps >= cur_exercise["repetitions"]:
         task_finished = True
-        if confirmed:
+        print(confirmed, confirmedAt)
+        if confirmed and time.time() - confirmedAt < 5:
+            print('success')
             showSuccess()
+        elif confirmed and time.time() - confirmedAt < 6 and time.time() - confirmedAt > 5:
+            resetDisplay()
         else:
+            print('finish task')
             finish_task()
         return
     else:
-        beep(*(int(phase) for phase in cur_exercise["exercise"]["pace"]))
+        # beep(*(int(phase) for phase in cur_exercise["exercise"]["pace"]))
+        pass
 
 
 def main_loop():
     global task_length
     global cur_exercise
+    global confirmed, confirmedAt
+    global current_card_id
     MIFAREReader = MFRC522()
     while True:
         (status, TagType) = MIFAREReader.MFRC522_Request(MIFAREReader.PICC_REQIDL)
@@ -257,11 +288,16 @@ def main_loop():
                 num = 0
                 for i in range(0, len(uid)):
                     num += uid[i] << (i * 8)
+                print(current_card_id)
                 if num == current_card_id and task_finished:
                     send_confirm_task_request()
+                    print('confirming')
+                    confirmed = True
+                    confirmedAt = time.time()
                     # show success message
                 elif num != current_card_id:
                     current_card_id = num
+                    print(current_card_id)
                     task_finished = False
                     get_task_info()
         elif cur_exercise != None:
@@ -291,7 +327,9 @@ if __name__ == "__main__":
     print("\nProgram started")
     initDisplay(display)
     setup_buzzer()
+    receiver.connect_to_broker("get/task/resp", process_message=act_on_task_info)
     try:
+        resetDisplay()
         main_loop()
     except KeyboardInterrupt:
         print("\nProgram terminated")

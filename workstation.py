@@ -390,6 +390,8 @@ def change_app_state(state):
     print(f'change{application_state}->{state}')
     application_state = state
     last_changed_at = time.time()
+    if state == IDLE:
+        current_card_id = -1
     ui_updated = False
 
 

@@ -334,7 +334,6 @@ def update_state():
         if time.time() - last_changed_at > 15:
             change_app_state(IDLE)
             cur_exercise = None
-    print("update state")
 
 
 def main_loop():

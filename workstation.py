@@ -286,6 +286,7 @@ def send_confirm_task_request():
         "confirm/task",
         f'{current_card_id} {current_task_id} {time.strftime("%Y-%m-%dT%H:%M:%SZ")}',
     )
+    sender.disconnect_from_broker()
 
 
 def update_state():

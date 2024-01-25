@@ -31,8 +31,17 @@ confirmed = False
 confirmedAt = 0
 pace = 0.5
 reps = 0
-reseted_after_finish = False
-success_reseted = False
+parsed = None
+
+application_state = 0
+last_changed_at = 0
+ui_updated = True
+IDLE = 0
+NEW_CARD = 1
+EXERCISE = 2
+EXERCISE_FINISHED = 3
+WAITING_FOR_CONFIRMATION = 4
+DIRECT_TO_NEXT_EXERCISE = 5
 
 BUZZER_PIN = buzzerPin
 
@@ -57,23 +66,18 @@ def resetDisplay():
     draw.text((0, 10), "Put card to a reader", font=fontSmall, fill="WHITE")
     display.ShowImage(image1, 0, 0)
 
+
 def showSuccess():
     global image1, draw, fontSmall, display, success_reseted
-    if not success_reseted:
-        display.clear()
-        draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
-        draw.text((30, 10), "Good job!", font=fontSmall, fill="WHITE")
-        display.ShowImage(image1, 0, 0)
-        success_reseted = True
+
+    display.clear()
+    draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
+    draw.text((30, 10), "Good job!", font=fontSmall, fill="WHITE")
+    display.ShowImage(image1, 0, 0)
 
 
 def start_task():
-    global image1, draw, fontSmall, display, task_start, task_start_time, cur_exercise, reps, task_finished, reseted_after_finish, success_reseted
-    success_reseted = True
-    reseted_after_finish = False
-    task_start = True
-    task_finished = False
-    reps = 0
+    global image1, draw, fontSmall, display, cur_exercise, reps, task_finished
     display.clear()
     draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
     draw.text(
@@ -94,8 +98,57 @@ def start_task():
         font=fontSmall,
         fill="WHITE",
     )
+    draw.text(
+        (10, 40),
+        f"Repetitions made: {reps}",
+        font=fontSmall,
+        fill="WHITE",
+    )
     display.ShowImage(image1, 0, 0)
-    task_start_time = time.time()
+
+
+def direct_to_next_exercise():
+    print("directing to next exercise wow")
+    global image1, draw, fontSmall, display, cur_exercise, reps, task_finished, parsed
+
+    display.clear()
+    draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
+
+    exercises = parsed["dailyPlanExercises"]
+    exercises.sort(key=lambda x: x["order"])
+    unfinished = [exercise for exercise in exercises if not exercise["is_finished"]]
+    if len(unfinished) <= 1:
+        draw.text(
+            (10, 10),
+            f"Your daily plan",
+            font=fontSmall,
+            fill="WHITE",
+        )
+        draw.text(
+            (10, 20),
+            f"is finished",
+            font=fontSmall,
+            fill="WHITE",
+        )
+    else:
+        draw.text(
+            (10, 10),
+            f"Next exercise:",
+            font=fontSmall,
+            fill="WHITE",
+        )
+        draw.text(
+            (10, 20),
+            f"{unfinished[1]['exercise']['name']}",
+            font=fontSmall,
+            fill="WHITE",
+        )
+        draw.text(
+            (10, 30),
+            f"Repetitions: {unfinished[1]['repetitions']}",
+            font=fontSmall,
+            fill="WHITE",
+        )
 
 
 def setup_buzzer():
@@ -111,27 +164,23 @@ def beep(pace1, pace2, pace3, pace4):
     global task_start_time
     duration = time.time() - task_start_time
     phase = duration % cycle
+    buzzer_phase = duration % 0.2
     if phase < pace1:
-        buzzer(True)
+        buzzer(buzzer_phase < 0.1)
     elif phase < pace1 + pace2:
         buzzer(False)
     elif phase < pace1 + pace2 + pace3:
-        buzzer(True)
+        buzzer(buzzer_phase < 0.1)
     elif phase < pace1 + pace2 + pace3 + pace4:
         buzzer(False)
 
 
 def get_task_info():
-    global current_task_id
-    global task_start_time
-    global task_end_time
-    global task_start
-
-    # subscribe to get/task/response
-    # send get/task request
-    print('getting task')
-    send_get_task_request()
-    print('request sent')
+    global current_card_id
+    print("getting task")
+    sender.connect_to_broker("get/task", current_card_id)
+    sender.disconnect_from_broker()
+    print("request sent")
 
 
 def act_on_task_info(client, userdata, message):
@@ -192,9 +241,8 @@ def act_on_task_info(client, userdata, message):
     #     ],
     # }
     # """
-    global current_task_id, cur_exercise
-    
-    
+    global current_task_id, cur_exercise, parsed
+
     # sender.disconnect_from_broker()
     message_decoded = str(message.payload.decode("utf-8"))
     print(message_decoded)
@@ -208,23 +256,18 @@ def act_on_task_info(client, userdata, message):
             break
     cur_exercise = current_exercise
     current_task_id = str(current_exercise["id"])
-    start_task()
-
-    # show visual on a screen
+    change_app_state(EXERCISE)
 
 
 def finish_task():
-    global reseted_after_finish
-    if not reseted_after_finish:
-        global image1, draw, fontSmall, display, task_start, task_start_time, cur_exercise, reps, task_finished, confirmed, display, confirmedAt
-        display.clear()
-        task_finished = True
-        draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
-        draw.text((30, 10), "Confirm finishing exercise", font=fontSmall, fill="WHITE")
-        display.ShowImage(image1, 0, 0)
-        confirmed = False
-        confirmedAt = time.time()
-        reseted_after_finish = True
+    global image1, draw, fontSmall, display, task_start, task_start_time, cur_exercise, reps, task_finished, confirmed, display, confirmedAt
+    display.clear()
+    task_finished = True
+    draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
+    draw.text((10, 10), "Confirm finishing", font=fontSmall, fill="WHITE")
+    draw.text((10, 20), "exercise. Put card", font=fontSmall, fill="WHITE")
+    draw.text((10, 30), "to reader", font=fontSmall, fill="WHITE")
+    display.ShowImage(image1, 0, 0)
 
 
 def send_get_task_request():
@@ -249,29 +292,53 @@ def send_confirm_task_request():
     )
 
 
-def update_exercise():
-    print("updating exercise")
-    global cur_exercise, reps, task_finished, task_start_time, confirmed, confirmedAt
-
-    phases = (int(phase) for phase in cur_exercise["exercise"]["pace"])
-    cycle = sum(phases)
-    reps = int((time.time() - task_start_time) / cycle)
-
-    if reps >= cur_exercise["repetitions"]:
-        task_finished = True
-        print(confirmed, confirmedAt)
-        if confirmed and time.time() - confirmedAt < 5:
-            print('success')
-            showSuccess()
-        elif confirmed and time.time() - confirmedAt < 6 and time.time() - confirmedAt > 5:
+def update_state():
+    global ui_updated, application_state, last_changed_at, cur_exercise
+    if application_state == IDLE:
+        if not ui_updated:
             resetDisplay()
-        else:
-            print('finish task')
+            ui_updated = True
+    elif application_state == NEW_CARD:
+        if not ui_updated:
+            get_task_info()
+            ui_updated = True
+    elif application_state == EXERCISE:
+        if not ui_updated:
+            start_task()
+            ui_updated = True
+        global cur_exercise, reps, task_finished, task_start_time, confirmed, confirmedAt
+
+        beep(*(int(phase) for phase in cur_exercise["exercise"]["pace"]))
+
+        phases = (int(phase) for phase in cur_exercise["exercise"]["pace"])
+        cycle = sum(phases)
+        reps = int((time.time() - task_start_time) / cycle)
+        if reps >= cur_exercise["repetitions"]:
+            change_app_state(EXERCISE_FINISHED)
+    elif application_state == EXERCISE_FINISHED:
+        if not ui_updated:
             finish_task()
-        return
-    else:
-        # beep(*(int(phase) for phase in cur_exercise["exercise"]["pace"]))
-        pass
+            ui_updated = True
+        if time.time() - last_changed_at > 5:
+            showSuccess()
+            change_app_state(WAITING_FOR_CONFIRMATION)
+    elif application_state == WAITING_FOR_CONFIRMATION:
+        if not ui_updated:
+            pass
+        # 3 minutes passed
+        if time.time() - last_changed_at > 180:
+            resetDisplay()
+            change_app_state(IDLE)
+    elif application_state == DIRECT_TO_NEXT_EXERCISE:
+        if not ui_updated:
+            send_confirm_task_request()
+            direct_to_next_exercise()
+            ui_updated = True
+        # 15 SECOND PASSED
+        if time.time() - last_changed_at > 15:
+            change_app_state(IDLE)
+            cur_exercise = None
+    print("update state")
 
 
 def main_loop():
@@ -289,38 +356,47 @@ def main_loop():
                 for i in range(0, len(uid)):
                     num += uid[i] << (i * 8)
                 print(current_card_id)
-                if num == current_card_id and task_finished:
-                    send_confirm_task_request()
-                    print('confirming')
-                    confirmed = True
-                    confirmedAt = time.time()
+                if num == current_card_id:
+                    same_card(num)
+                    print("same card")
                     # show success message
                 elif num != current_card_id:
-                    current_card_id = num
-                    print(current_card_id)
-                    task_finished = False
+                    handle_new_card(num)
                     get_task_info()
-        elif cur_exercise != None:
-            update_exercise()
-        elif confirmed and time.time() - confirmedAt > 5:
-            confirmed = False
-            resetDisplay()
-            cur_exercise = None
+
+        update_state()
 
 
-# if card_read:
-#     if card_read == current_card_id and exercise_finished:
-#         send confirm/task request
+def same_card(num):
+    global application_state, last_changed_at
+    if application_state == IDLE:
+        print("idle")
+        pass
+    elif application_state == NEW_CARD:
+        print("new card")
+        pass
+    elif application_state == EXERCISE:
+        print("exercise")
+    elif application_state == EXERCISE_FINISHED:
+        change_app_state(DIRECT_TO_NEXT_EXERCISE)
+    elif application_state == WAITING_FOR_CONFIRMATION:
+        change_app_state(EXERCISE_FINISHED)
+    elif application_state == DIRECT_TO_NEXT_EXERCISE:
+        print("direct to next exercise")
 
-#     else:
-#         get_task_info() -> exercise = true, update screen
-#         current_card_id = card_read
-# elseif exercise:
-#     interface update
-# else:
-#      continue
-#
-#
+
+def handle_new_card(num):
+    global application_state, last_changed_at, current_card_id
+    current_card_id = num
+    change_app_state(NEW_CARD)
+
+
+def change_app_state(state):
+    global application_state, last_changed_at, ui_updated
+    application_state = state
+    last_changed_at = time.time()
+    ui_updated = False
+
 
 if __name__ == "__main__":
     GPIO.setmode(GPIO.BCM)

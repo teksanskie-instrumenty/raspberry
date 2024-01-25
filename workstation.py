@@ -314,14 +314,15 @@ def update_state():
             change_app_state(EXERCISE_FINISHED)
     elif application_state == EXERCISE_FINISHED:
         if not ui_updated:
-            finish_task()
+            showSuccess()
             ui_updated = True
         if time.time() - last_changed_at > 5:
             showSuccess()
             change_app_state(WAITING_FOR_CONFIRMATION)
     elif application_state == WAITING_FOR_CONFIRMATION:
         if not ui_updated:
-            pass
+            finish_task()
+            ui_updated = True
         # 3 minutes passed
         if time.time() - last_changed_at > 180:
             resetDisplay()

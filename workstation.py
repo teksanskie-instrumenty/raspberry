@@ -284,11 +284,7 @@ def send_confirm_task_request():
     # current timestamp in format 2022-03-01T10:00:00Z
     sender.connect_to_broker(
         "confirm/task",
-        current_card_id
-        + " "
-        + current_task_id
-        + " "
-        + time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        f'{current_card_id} {current_task_id} {time.strftime("%Y-%m-%dT%H:%M:%SZ")}',
     )
 
 
@@ -359,10 +355,8 @@ def main_loop():
                 if num == current_card_id:
                     same_card(num)
                     print("same card")
-                    # show success message
                 elif num != current_card_id:
                     handle_new_card(num)
-                    get_task_info()
 
         update_state()
 
@@ -393,9 +387,11 @@ def handle_new_card(num):
 
 def change_app_state(state):
     global application_state, last_changed_at, ui_updated
+    print(f'change{application_state}->{state}')
     application_state = state
     last_changed_at = time.time()
     ui_updated = False
+    print(f'change ')
 
 
 if __name__ == "__main__":

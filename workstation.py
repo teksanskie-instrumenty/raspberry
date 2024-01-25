@@ -149,6 +149,7 @@ def direct_to_next_exercise():
             font=fontSmall,
             fill="WHITE",
         )
+    display.ShowImage(image1, 0, 0)
 
 
 def setup_buzzer():
@@ -366,10 +367,8 @@ def same_card(num):
     global application_state, last_changed_at
     if application_state == IDLE:
         print("idle")
-        pass
     elif application_state == NEW_CARD:
         print("new card")
-        pass
     elif application_state == EXERCISE:
         print("exercise")
     elif application_state == EXERCISE_FINISHED:
@@ -392,7 +391,6 @@ def change_app_state(state):
     application_state = state
     last_changed_at = time.time()
     ui_updated = False
-    print(f'change ')
 
 
 if __name__ == "__main__":

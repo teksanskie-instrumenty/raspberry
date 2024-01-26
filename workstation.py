@@ -86,6 +86,7 @@ def start_task():
         font=fontSmall,
         fill="WHITE",
     )
+
     draw.text(
         (10, 20),
         f"{cur_exercise['exercise']['name']}",
@@ -246,6 +247,9 @@ def act_on_task_info(client, userdata, message):
 
     # sender.disconnect_from_broker()
     message_decoded = str(message.payload.decode("utf-8"))
+    if message_decoded == 'card not assigned to the user':
+        print('card not assigned to the user')
+        return
     print(message_decoded)
     parsed = json.loads(message_decoded)
     exercises = parsed["dailyPlanExercises"]
@@ -318,7 +322,6 @@ def update_state():
             showSuccess()
             ui_updated = True
         if time.time() - last_changed_at > 5:
-            showSuccess()
             change_app_state(WAITING_FOR_CONFIRMATION)
     elif application_state == WAITING_FOR_CONFIRMATION:
         if not ui_updated:
@@ -335,8 +338,8 @@ def update_state():
             ui_updated = True
         # 15 SECOND PASSED
         if time.time() - last_changed_at > 15:
-            change_app_state(IDLE)
             cur_exercise = None
+            change_app_state(IDLE)
 
 
 def main_loop():
@@ -374,7 +377,7 @@ def same_card(num):
     elif application_state == EXERCISE_FINISHED:
         change_app_state(DIRECT_TO_NEXT_EXERCISE)
     elif application_state == WAITING_FOR_CONFIRMATION:
-        change_app_state(EXERCISE_FINISHED)
+        change_app_state(DIRECT_TO_NEXT_EXERCISE)
     elif application_state == DIRECT_TO_NEXT_EXERCISE:
         print("direct to next exercise")
 
@@ -386,8 +389,8 @@ def handle_new_card(num):
 
 
 def change_app_state(state):
-    global application_state, last_changed_at, ui_updated
-    print(f'change{application_state}->{state}')
+    global application_state, last_changed_at, ui_updated, current_card_id
+    print(f'change{application_state}->{state}: {time.time()}')
     application_state = state
     last_changed_at = time.time()
     if state == IDLE:

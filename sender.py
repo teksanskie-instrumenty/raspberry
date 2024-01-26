@@ -33,7 +33,7 @@ def disconnect_from_broker():
 
 
 def run_sender():
-    connect_to_broker()
+    connect_to_broker(message='nie znamy pana')
     disconnect_from_broker()
 
 

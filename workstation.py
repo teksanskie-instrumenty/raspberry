@@ -6,7 +6,7 @@ import neopixel
 import board
 import paho.mqtt.client as mqtt
 import sender
-import raspberry.receiver as receiver
+import receiver
 import json
 import busio
 import adafruit_bme280.advanced as adafruit_bme280

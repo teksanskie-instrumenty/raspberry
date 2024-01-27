@@ -9,7 +9,7 @@ import sender
 import receiver
 import json
 import busio
-import adafruit_bme280.advanced as adafruit_bme280
+# import adafruit_bme280.advanced as adafruit_bme280
 from PIL import Image, ImageDraw, ImageFont
 import lib.oled.SSD1331 as SSD1331
 
@@ -42,6 +42,8 @@ EXERCISE = 2
 EXERCISE_FINISHED = 3
 WAITING_FOR_CONFIRMATION = 4
 DIRECT_TO_NEXT_EXERCISE = 5
+REST_DAY = 6
+UNKNOWN_USER = 7
 
 BUZZER_PIN = buzzerPin
 
@@ -247,12 +249,24 @@ def act_on_task_info(client, userdata, message):
 
     # sender.disconnect_from_broker()
     message_decoded = str(message.payload.decode("utf-8"))
-    if message_decoded == 'card not assigned to the user':
+    if message_decoded == 'Card not assigned to user':
         print('card not assigned to the user')
+        change_app_state(UNKNOWN_USER)
         return
     print(message_decoded)
-    parsed = json.loads(message_decoded)
+    try:
+        parsed = json.loads(message_decoded)
+    except:
+        print('parse error')
+        change_app_state(UNKNOWN_USER)
+        return
+
     exercises = parsed["dailyPlanExercises"]
+    if len(exercises) == 0:
+        print('no exercises')
+        change_app_state(REST_DAY)
+        return
+
     exercises.sort(key=lambda x: x["order"])
     current_exercise = exercises[0]
     for exercise in exercises:
@@ -267,11 +281,26 @@ def act_on_task_info(client, userdata, message):
 def finish_task():
     global image1, draw, fontSmall, display, task_start, task_start_time, cur_exercise, reps, task_finished, confirmed, display, confirmedAt
     display.clear()
-    task_finished = True
     draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
     draw.text((10, 10), "Confirm finishing", font=fontSmall, fill="WHITE")
     draw.text((10, 20), "exercise. Put card", font=fontSmall, fill="WHITE")
     draw.text((10, 30), "to reader", font=fontSmall, fill="WHITE")
+    display.ShowImage(image1, 0, 0)
+
+def unknown_user_ui():
+    global image1, draw, fontSmall, display, task_start, task_start_time, cur_exercise, reps, task_finished, confirmed, display, confirmedAt
+    display.clear()
+    draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
+    draw.text((5, 10), "You are not registered.", font=fontSmall, fill="WHITE")
+    draw.text((5, 20), "Register at entrance.", font=fontSmall, fill="WHITE")
+    display.ShowImage(image1, 0, 0)
+
+def rest_day_ui():
+    global image1, draw, fontSmall, display, task_start, task_start_time, cur_exercise, reps, task_finished, confirmed, display, confirmedAt
+    display.clear()
+    draw.rectangle([(0, 0), (96, 56)], fill="BLACK")
+    draw.text((10, 10), "This is rest day.", font=fontSmall, fill="WHITE")
+    draw.text((20, 20), "Go REST!", font=fontSmall, fill="WHITE")
     display.ShowImage(image1, 0, 0)
 
 
@@ -287,6 +316,7 @@ def send_confirm_task_request():
     global current_card_id
     global current_task_id
     # current timestamp in format 2022-03-01T10:00:00Z
+    print(f'{current_card_id} {current_task_id} {time.strftime("%Y-%m-%dT%H:%M:%SZ")}')
     sender.connect_to_broker(
         "confirm/task",
         f'{current_card_id} {current_task_id} {time.strftime("%Y-%m-%dT%H:%M:%SZ")}',
@@ -304,6 +334,10 @@ def update_state():
         if not ui_updated:
             get_task_info()
             ui_updated = True
+        # 30 seconds passed
+        if time.time() - last_changed_at > 30:
+            resetDisplay()
+            change_app_state(IDLE)
     elif application_state == EXERCISE:
         if not ui_updated:
             start_task()
@@ -314,8 +348,9 @@ def update_state():
 
         phases = (int(phase) for phase in cur_exercise["exercise"]["pace"])
         cycle = sum(phases)
-        reps = int((time.time() - task_start_time) / cycle)
+        reps = int((time.time() - last_changed_at) / cycle)
         if reps >= cur_exercise["repetitions"]:
+            print(reps)
             change_app_state(EXERCISE_FINISHED)
     elif application_state == EXERCISE_FINISHED:
         if not ui_updated:
@@ -340,7 +375,18 @@ def update_state():
         if time.time() - last_changed_at > 15:
             cur_exercise = None
             change_app_state(IDLE)
-
+    elif application_state == UNKNOWN_USER:
+        if not ui_updated:
+            unknown_user_ui()
+            ui_updated = True
+        if time.time() - last_changed_at > 5:
+            change_app_state(IDLE)
+    elif application_state == REST_DAY:
+        if not ui_updated:
+            rest_day_ui()
+            ui_updated = True
+        if time.time() - last_changed_at > 5:
+            change_app_state(IDLE)
 
 def main_loop():
     global task_length

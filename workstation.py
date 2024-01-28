@@ -9,6 +9,7 @@ import sender
 import receiver
 import json
 import busio
+
 # import adafruit_bme280.advanced as adafruit_bme280
 from PIL import Image, ImageDraw, ImageFont
 import lib.oled.SSD1331 as SSD1331
@@ -133,26 +134,50 @@ def direct_to_next_exercise():
             font=fontSmall,
             fill="WHITE",
         )
+        display.ShowImage(image1, 0, 0)
     else:
-        draw.text(
-            (10, 10),
-            f"Next exercise:",
-            font=fontSmall,
-            fill="WHITE",
+        display_machine_info(
+            unfinished[1]["exercise"]["station"]["name"],
+            unfinished[1]["exercise"]["station"]["color"],
         )
-        draw.text(
-            (10, 20),
-            f"{unfinished[1]['exercise']['name']}",
-            font=fontSmall,
-            fill="WHITE",
-        )
-        draw.text(
-            (10, 30),
-            f"Repetitions: {unfinished[1]['repetitions']}",
-            font=fontSmall,
-            fill="WHITE",
-        )
-    display.ShowImage(image1, 0, 0)
+
+
+def display_machine_info(station_name, station_color):
+    global display
+    disp = display
+
+    image_outer = Image.new("RGB", (disp.width, disp.height), "WHITE")
+    draw = ImageDraw.Draw(image_outer)
+
+    text = (
+        "There are no exercises, go home"
+        if station_name is None
+        else f"Go to machine:\n{station_name}"
+    )
+
+    color_rgb = tuple(int(station_color[i : i + 2], 16) for i in (0, 2, 4))
+
+    circle_radius = min((disp.width, disp.height)) // 4
+    circle_bbox = (
+        (disp.width, disp.height)[0] - circle_radius,
+        (disp.width, disp.height)[1] - circle_radius,
+        (disp.width, disp.height)[0],
+        (disp.width, disp.height)[1],
+    )
+
+    draw.ellipse(circle_bbox, fill=color_rgb)
+
+    # basic values
+    font = fontSmall
+    font_size = 20
+
+    text_color = "black"
+
+    text_position = (10, 10)
+
+    draw.text(text_position, text, font=font, fill=text_color)
+
+    disp.ShowImage(image_outer, 0, 0)
 
 
 def setup_buzzer():
@@ -249,21 +274,21 @@ def act_on_task_info(client, userdata, message):
 
     # sender.disconnect_from_broker()
     message_decoded = str(message.payload.decode("utf-8"))
-    if message_decoded == 'Card not assigned to user':
-        print('card not assigned to the user')
+    if message_decoded == "Card not assigned to user":
+        print("card not assigned to the user")
         change_app_state(UNKNOWN_USER)
         return
     print(message_decoded)
     try:
         parsed = json.loads(message_decoded)
     except:
-        print('parse error')
+        print("parse error")
         change_app_state(UNKNOWN_USER)
         return
 
     exercises = parsed["dailyPlanExercises"]
     if len(exercises) == 0:
-        print('no exercises')
+        print("no exercises")
         change_app_state(REST_DAY)
         return
 
@@ -287,6 +312,7 @@ def finish_task():
     draw.text((10, 30), "to reader", font=fontSmall, fill="WHITE")
     display.ShowImage(image1, 0, 0)
 
+
 def unknown_user_ui():
     global image1, draw, fontSmall, display, task_start, task_start_time, cur_exercise, reps, task_finished, confirmed, display, confirmedAt
     display.clear()
@@ -294,6 +320,7 @@ def unknown_user_ui():
     draw.text((5, 10), "You are not registered.", font=fontSmall, fill="WHITE")
     draw.text((5, 20), "Register at entrance.", font=fontSmall, fill="WHITE")
     display.ShowImage(image1, 0, 0)
+
 
 def rest_day_ui():
     global image1, draw, fontSmall, display, task_start, task_start_time, cur_exercise, reps, task_finished, confirmed, display, confirmedAt
@@ -388,6 +415,7 @@ def update_state():
         if time.time() - last_changed_at > 5:
             change_app_state(IDLE)
 
+
 def main_loop():
     global task_length
     global cur_exercise
@@ -436,7 +464,7 @@ def handle_new_card(num):
 
 def change_app_state(state):
     global application_state, last_changed_at, ui_updated, current_card_id
-    print(f'change{application_state}->{state}: {time.time()}')
+    print(f"change{application_state}->{state}: {time.time()}")
     application_state = state
     last_changed_at = time.time()
     if state == IDLE:

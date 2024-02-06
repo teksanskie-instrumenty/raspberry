@@ -3,12 +3,13 @@
 import time
 import json
 import paho.mqtt.client as mqtt
+import os
 
 
 client = mqtt.Client()
-client.username_pw_set("iot", "G516cD8#rSb£")
+client.username_pw_set(os.getenv("USERNAME"), os.getenv("PASSWORD"))
 topic = "get/task"
-broker = "iot-proj.swisz.cz"
+broker = os.getenv("BROKER")
 # broker="localhost"
 
 

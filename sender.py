@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 
 import paho.mqtt.client as mqtt
+import os
 
 # The terminal ID - can be any string.
-terminal_id = "T0"
+terminal_id = os.getenv("TERMINAL_ID", "T0")
 # The broker name or IP address.
-broker = "iot-proj.swisz.cz"
+broker = os.getenv("BROKER")
 # broker = "localhost"
 
 
 # The MQTT client.
 client = mqtt.Client()
-client.username_pw_set("iot", "G516cD8#rSb£")
+client.username_pw_set(os.getenv("USERNAME"), os.getenv("PASSWORD"))
 
 
 def call_worker(topic, message):

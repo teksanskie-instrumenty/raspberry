@@ -5,6 +5,8 @@ from mfrc522 import MFRC522
 import neopixel
 import board
 import paho.mqtt.client as mqtt
+from dotenv import load_dotenv
+load_dotenv()
 import sender
 import receiver
 import json
@@ -14,11 +16,6 @@ import busio
 from PIL import Image, ImageDraw, ImageFont
 import lib.oled.SSD1331 as SSD1331
 
-# App logic
-# put card -> sprawdzenie, czy ćwiczenie jest zaczęte, jeśli tak przerywa poprzednie, jeśli nie to zaczyna nowe
-# 1. starting activity ->
-# get/task card id -> show task info -> start buzzing -> start timer -> timer ends -> show success message -> stop buzzing -> stop timer -> stop showing task info
-# interruption -> new task
 
 current_card_id = -1
 current_task_id = -1
